@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TACTICAL LIDAR — KHỐI PHÂN BIỆT VẬT CẢN ĐỘNG/TĨNH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#04070d; --panel:#070d18; --line:#123048;
+    --neon:#00ffa8; --cyan:#38e8ff; --dim:#1d4a5e;
+    --red:#ff2d4b; --amber:#ffc247; --text:#a8e8dd;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Share Tech Mono',ui-monospace,Consolas,monospace;
+    display:flex; overflow:hidden;
+    background-image:
+      repeating-linear-gradient(0deg,rgba(0,255,168,.022) 0 1px,transparent 1px 3px);
+  }
+  #stage{flex:1;position:relative;min-width:0}
+  canvas{display:block;width:100%;height:100%}
+  #stage>canvas{position:absolute;inset:0}
+  #gridCv{pointer-events:none}
+
+  .hud{position:absolute;pointer-events:none;text-shadow:0 0 8px currentColor;
+       font-size:12px;letter-spacing:.08em;line-height:1.7}
+  #tl{top:14px;left:18px;color:var(--cyan)}
+  #tr{top:14px;right:18px;color:var(--cyan);text-align:right}
+  #bl{bottom:14px;left:18px;color:var(--dim)}
+  #status{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;
+    font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;
+    letter-spacing:.28em;pointer-events:none}
+  .k{color:#4d7d8f}
+  .v{color:var(--neon)}
+  .big{font-family:'Orbitron',sans-serif;font-weight:700;font-size:22px;color:var(--neon)}
+  .goc{font-family:'Orbitron',sans-serif;font-weight:700;font-size:19px;color:var(--red);
+       text-shadow:0 0 10px var(--red)}
+
+  #side{
+    width:298px;flex:0 0 298px;background:var(--panel);
+    border-left:1px solid var(--line);overflow-y:auto;padding:16px 14px 40px;
+    font-size:11px;
+  }
+  #side h2{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:.18em;
+    color:var(--cyan);margin:0 0 12px;text-shadow:0 0 10px var(--cyan)}
+  .grp{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+  .grp>.t{color:var(--amber);letter-spacing:.14em;margin-bottom:9px;font-size:10px}
+  .row{margin-bottom:11px}
+  .row label{display:flex;justify-content:space-between;color:#6f9aab;margin-bottom:3px}
+  .row label b{color:var(--neon);font-weight:400}
+  input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;
+    background:var(--line);outline:none;border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+    border-radius:50%;background:var(--neon);box-shadow:0 0 8px var(--neon);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;
+    background:var(--neon);box-shadow:0 0 8px var(--neon);cursor:pointer}
+  .hint{color:#3f6473;font-size:10px;line-height:1.5;margin-top:-4px;margin-bottom:9px}
+  .tog{display:flex;align-items:center;gap:8px;color:#6f9aab;cursor:pointer;margin-bottom:8px}
+  .tog input{accent-color:var(--neon)}
+  #detail{border:1px solid var(--line);padding:9px;margin-top:10px;min-height:66px;
+    color:#6f9aab;line-height:1.7}
+  #detail .id{color:var(--red);font-family:'Orbitron',sans-serif;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:10px}
+  td{padding:2px 0;color:#5f8a9b}
+  td.n{text-align:right;color:var(--text)}
+  .st-DYNAMIC{color:var(--red)} .st-SUSPECT{color:var(--amber)} .st-STATIC{color:#3f6473}
+  #relearn{width:100%;padding:8px;margin-top:4px;cursor:pointer;
+    background:transparent;border:1px solid var(--amber);color:var(--amber);
+    font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.14em;
+    border-radius:2px}
+  #relearn:hover{background:rgba(255,194,71,.14)}
+  #relearn:active{background:rgba(255,194,71,.3)}
+  #relearn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  #relearn.need-relearn{color:#fff;border-color:#ff8a00;background:#b83b00;
+    box-shadow:0 0 16px rgba(255,90,0,.65);animation:needRelearn .8s ease-in-out infinite alternate}
+  @keyframes needRelearn{to{box-shadow:0 0 26px rgba(255,90,0,.95)}}
+  #conn{position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    font-size:11px;letter-spacing:.2em;color:var(--red);display:none}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="gridCv" aria-hidden="true"></canvas>
+  <canvas id="cv"></canvas>
+  <div class="hud" id="tl"></div>
+  <div class="hud" id="tr"></div>
+  <div class="hud" id="bl"></div>
+  <div id="status"></div>
+  <div id="conn">◉ MẤT KẾT NỐI — ĐANG THỬ LẠI</div>
+</div>
+
+<div id="side">
+  <h2>◈ BẢNG HIỆU CHỈNH</h2>
+
+  <label class="tog"><input type="checkbox" id="dbg"> Lớp gỡ lỗi (điểm quét + vết tĩnh)</label>
+  <label class="tog"><input type="checkbox" id="swp" checked> Đường quét radar</label>
+
+  <button id="relearn">HỌC LẠI NỀN</button>
+  <div class="hint" style="margin-top:6px">Bấm khi bạn vừa dọn dẹp phòng, hoặc lỡ
+  đứng trong vùng quét lúc khởi động. Hệ thống sẽ mù vài giây rồi chạy lại.</div>
+
+  <div id="detail">Bấm vào một ngôi sao đỏ để xem chi tiết.</div>
+
+  <div class="grp">
+    <div class="t">BỐN CỔNG QUYẾT ĐỊNH</div>
+    <div class="hint">Thoả bất kỳ cổng nào là xác nhận ĐỘNG. Không cổng nào dùng vận tốc tức thời.</div>
+    <div class="row" data-k="diff_mm"          data-min="15" data-max="150" data-step="5"  data-fmt="mm"></div>
+    <div class="row" data-k="diff_min_run"     data-min="2"  data-max="15"  data-step="1"  data-fmt="ô"></div>
+    <div class="row" data-k="evidence_min_bins" data-min="1" data-max="20"  data-step="1"  data-fmt="ô"></div>
+    <div class="row" data-k="strong_ev_bins"   data-min="4"  data-max="40"  data-step="1"  data-fmt="ô"></div>
+    <div class="row" data-k="g3_radial_mm"     data-min="30" data-max="400" data-step="10" data-fmt="mm"></div>
+    <div class="row" data-k="g4_anchor_mm"     data-min="50" data-max="500" data-step="10" data-fmt="mm"></div>
+    <div class="row" data-k="k_confirm"        data-min="1"  data-max="8"   data-step="1"  data-fmt="frame"></div>
+    <div class="row" data-k="latch_dynamic"    data-min="0"  data-max="1"   data-step="1"></div>
+    <div class="hint">Ghim = 1: đã xác nhận ĐỘNG thì hiện liên tục, kể cả khi vật đứng lại.</div>
+  </div>
+
+  <div class="grp">
+    <div class="t">MÔ HÌNH NỀN &amp; BÁM VẾT</div>
+    <div class="row" data-k="mat_do_diem"      data-min="0"   data-max="3"   data-step="0.1" data-fmt="chấm/ô"></div>
+    <div class="hint">Cụm thưa hơn mức này không được sinh mục tiêu mới. Tăng nếu bị
+    chấm lẻ báo động giả; giảm nếu bỏ sót vật ở xa.</div>
+    <div class="row" data-k="nhap_nhay_diem"   data-min="0"   data-max="90"  data-step="5"  data-fmt="vòng"></div>
+    <div class="hint">Bề mặt trong suốt hoặc bóng loáng làm tia lúc dội về từ vật, lúc
+    xuyên qua rồi dội về từ tường phía sau, khiến ô góc chớp tắt liên tục và bị hiểu
+    nhầm là chuyển động. Ô nào chớp tắt lâu hơn mức này thì bị loại khỏi việc gom cụm.
+    Đặt 0 để tắt hẳn.</div>
+    <div class="row" data-k="fg_margin_mm"     data-min="20"  data-max="200" data-step="5"  data-fmt="mm"></div>
+    <div class="row" data-k="bg_window_s"      data-min="10"  data-max="180" data-step="5"  data-fmt="s"></div>
+    <div class="row" data-k="gate_base_mm"     data-min="100" data-max="700" data-step="20" data-fmt="mm"></div>
+    <div class="row" data-k="lost_timeout_dyn_s" data-min="2" data-max="30" data-step="1" data-fmt="s"></div>
+    <div class="hint">Vết động mất phản hồi sẽ đứng tại vị trí cuối, mờ dần và
+    hết hạn sau thời gian này. Mặc định 10 giây.</div>
+    <div class="row" data-k="so_vong_xac_nhan_ra" data-min="1" data-max="4" data-step="1" data-fmt="vòng"></div>
+    <div class="row" data-k="sigma_a_mm_s2"    data-min="200" data-max="4000" data-step="100" data-fmt="mm/s²"></div>
+    <div class="row" data-k="max_range_mm"     data-min="300" data-max="8000" data-step="100" data-fmt="mm"></div>
+  </div>
+
+  <div class="grp">
+    <div class="t">TRẠNG THÁI CÁC VẾT</div>
+    <table id="tt"></table>
+  </div>
+</div>
+
+<script>
+const LBL = {
+  diff_mm:'G1/G2 · ngưỡng chênh cự ly', diff_min_run:'G1/G2 · dải ô liền kề',
+  evidence_min_bins:'G1/G2 · số ô bằng chứng', strong_ev_bins:'Bằng chứng mạnh (vào nhánh nhanh)',
+  g3_radial_mm:'G3 · độ lại gần', g4_anchor_mm:'G4 · độ trôi từ mốc',
+  k_confirm:'Số frame xác nhận', latch_dynamic:'Ghim trạng thái ĐỘNG',
+  mat_do_diem:'Mật độ chấm tối thiểu', fg_margin_mm:'Lề tiền cảnh so với nền', bg_window_s:'Cửa sổ học nền',
+  gate_base_mm:'Bán kính ghép vết', lost_timeout_dyn_s:'Giữ dấu vết mất tín hiệu',
+  so_vong_xac_nhan_ra:'Xác nhận quỹ đạo ra khỏi vùng',
+  sigma_a_mm_s2:'Gia tốc giả định', max_range_mm:'Bán kính quét',
+  nhap_nhay_diem:'Lọc ô góc chớp tắt'
+};
+
+const buf = [];                                                 
+let cfg = {}, lastRx = 0;
+let maxRange = 1.0, fovHalf = 90, dtServer = 0.125;
+let selected = null;
+
+const visualTracks = new Map();
+const trails = new Map();
+const EXTRAPOLATION_FRACTION = 0.55;
+const CORRECTION_FAST_MS = 35;
+const CORRECTION_NORMAL_MS = 52;
+const CORRECTION_RECOVERY_MS = 80;
+const MAX_SMOOTH_DISTANCE_M = 0.30;
+const LOST_FADE_FALLBACK_S = 10.0;
+let lastTrailSeq = null;
+
+function framePeriod(f){
+  const d = Number(f && f.dt);
+  return Number.isFinite(d) && d > 0 ? d : Math.max(dtServer, 0.001);
+}
+
+function measurementAge(f, nowMs){
+  const reported = Number(f && f.scan_age_s);
+  const scanAge = Number.isFinite(reported) ? Math.max(0, reported) : 0;
+  const transit = f && Number.isFinite(f._rxMs)
+    ? Math.max(0, (nowMs - f._rxMs) / 1000) : 0;
+  return scanAge + transit;
+}
+
+function projectTrack(t, f, nowMs){
+  const period = framePeriod(f);
+  const reported = Number(f && f.scan_age_s);
+  const rawAge = Number.isFinite(reported) ? Math.max(0, reported) : 0;
+  const stale = rawAge > 2.0 * period;
+  const initialAge = Math.min(rawAge, period);
+  const freshPose = !stale &&
+    ((t.matched !== false) || (t.raw_recovered === true));
+  const cap = initialAge + (freshPose ? period * EXTRAPOLATION_FRACTION : 0);
+  const e = Math.min(measurementAge(f, nowMs), cap);
+  return {
+    x: (Number(t.x) || 0) + (Number(t.vx) || 0) * e,
+    y: (Number(t.y) || 0) + (Number(t.vy) || 0) * e
+  };
+}
+
+function visualPosition(state, nowMs){
+  const base = projectTrack(state.track, state.frame, nowMs);
+  const duration = Math.max(0, Number(state.offsetDuration) || 0);
+  const u = duration > 0
+    ? Math.max(0, Math.min(1, (nowMs - state.offsetAt) / duration)) : 1;
+  const remain = 1 - u*u*(3 - 2*u);
+  return {
+    x: base.x + state.offsetX * remain,
+    y: base.y + state.offsetY * remain
+  };
+}
+
+function lostAgeSeconds(state, nowMs){
+  const t = state && state.track ? state.track : {};
+  const transit = state && Number.isFinite(state.rxAt)
+    ? Math.max(0, (nowMs - state.rxAt) / 1000) : 0;
+  if (t.matched !== false || t.raw_recovered === true || t.occluded === true) return transit;
+  const reported = Number(t.stale_age);
+  const atFrame = Number.isFinite(reported) ? Math.max(0, reported) : 0;
+  return atFrame + transit;
+}
+
+function trackFadeAlpha(state, nowMs){
+  const configured = Number(state && state.frame && state.frame.lost_fade_s);
+  const duration = Number.isFinite(configured) && configured > 0
+    ? configured : LOST_FADE_FALLBACK_S;
+  const u = Math.max(0, Math.min(1, lostAgeSeconds(state, nowMs) / duration));
+  return 1 - u*u*(3 - 2*u);
+}
+
+function reconcileFrame(f, rxMs){
+  const active = new Set();
+  for (const t of f.tracks){
+    active.add(t.id);
+    const old = visualTracks.get(t.id);
+    const target = projectTrack(t, f, rxMs);
+    const hudGain = Number(t.hud_gain);
+    const trustedMotion = Number.isFinite(hudGain) && hudGain >= 0.5 &&
+      ((t.raw_recovered === true) || (t.matched !== false));
+    const state = {
+      track:t, frame:f, offsetX:0, offsetY:0, offsetAt:rxMs,
+      offsetDuration:0, rxAt:rxMs
+    };
+
+    if (old && t.frozen){
+      const shown = visualPosition(old, rxMs);
+      state.track = Object.assign({}, t, {
+        x:shown.x, y:shown.y, vx:0, vy:0, speed:0
+      });
+      visualTracks.set(t.id, state);
+      continue;
+    }
+
+    if (old && !t.frozen){
+      const shown = visualPosition(old, rxMs);
+      const dx = shown.x - target.x, dy = shown.y - target.y;
+      const correction = Math.hypot(dx, dy);
+      if (correction <= MAX_SMOOTH_DISTANCE_M){
+        const periodMs = framePeriod(f) * 1000;
+        const rxGap = Math.max(0, rxMs - (Number(old.rxAt) || rxMs));
+        const recovering = old.track && old.track.frozen;
+        const streamStalled = rxGap > 1.75 * periodMs;
+        state.offsetX = dx;
+        state.offsetY = dy;
+        state.offsetDuration = recovering || streamStalled
+          ? CORRECTION_RECOVERY_MS
+          : (trustedMotion ? CORRECTION_FAST_MS : CORRECTION_NORMAL_MS);
+        if (correction > 0.002) softCorrectionCount++;
+      } else {
+        hardCorrectionCount++;
+      }
+    }
+    visualTracks.set(t.id, state);
+  }
+  for (const id of [...visualTracks.keys()])
+    if (!active.has(id)) visualTracks.delete(id);
+}
+
+function sampleTrailsOnce(f, rxMs){
+  const numericSeq = Number(f.seq);
+  const seq = Number.isFinite(numericSeq) ? numericSeq : f.t;
+  if (seq === lastTrailSeq) return;
+  lastTrailSeq = seq;
+
+  const active = new Set();
+  for (const t of f.tracks){
+    active.add(t.id);
+    const state = visualTracks.get(t.id);
+    const p = state ? visualPosition(state, rxMs) : projectTrack(t, f, rxMs);
+    let trail = trails.get(t.id);
+    if (!trail){ trail = []; trails.set(t.id, trail); }
+    if (!t.frozen){
+      trail.push(p);
+      if (trail.length > 20) trail.splice(0, trail.length - 20);
+    }
+  }
+  for (const id of [...trails.keys()])
+    if (!active.has(id)) trails.delete(id);
+}
+
+function isNewerFrame(f){
+  if (!buf.length) return true;
+  const prev = buf[buf.length-1];
+  const seq = Number(f.seq), prevSeq = Number(prev.seq);
+  if (Number.isFinite(seq) && Number.isFinite(prevSeq)) return seq > prevSeq;
+  return Number(f.t) > Number(prev.t);
+}
+
+function resetStreamState(){
+  buf.length = 0;
+  visualTracks.clear();
+  trails.clear();
+  lastTrailSeq = null;
+  lastSeqReceived = null;
+  droppedFrames = 0;
+  streamStallCount = 0;
+  if (selected!==null)
+    writeText('detail','Bấm vào một ngôi sao đỏ để xem chi tiết.');
+  selected = null;
+}
+
+function connect(){
+  const es = new EventSource('/stream');
+  es.onopen = ()=>{
+    document.getElementById('conn').style.display='none';
+  };
+  es.onerror = ()=>{
+    document.getElementById('conn').style.display='block';
+  };
+  es.onmessage = ev => {
+    let f;
+    try { f = JSON.parse(ev.data); }
+    catch (_) { return; }
+    if (buf.length){
+      const seq = Number(f && f.seq);
+      const prevSeq = Number(buf[buf.length-1].seq);
+      if (Number.isFinite(seq) && Number.isFinite(prevSeq)
+          && seq <= 3 && prevSeq > seq+3) resetStreamState();
+    }
+    if (!f || !isNewerFrame(f)) return;
+
+    const rxMs = performance.now();
+    f._rxMs = rxMs;
+    f.tracks = Array.isArray(f.tracks) ? f.tracks : [];
+    f.candidates = Array.isArray(f.candidates) ? f.candidates : [];
+    f.scan_age_s = Math.max(0, Number(f.scan_age_s) || 0);
+    const streamGap = lastRx > 0 ? Math.max(0, rxMs-lastRx) : 0;
+    lastStreamGapMs = streamGap;
+    if (streamGap > Math.max(250, 2.2*framePeriod(f)*1000)){
+      streamStallCount++;
+      liteUntilMs = Math.max(liteUntilMs, rxMs + 1800);
+    }
+    const seqNow = Number(f.seq);
+    if (Number.isFinite(seqNow) && Number.isFinite(lastSeqReceived)
+        && seqNow > lastSeqReceived + 1)
+      droppedFrames += seqNow - lastSeqReceived - 1;
+    if (Number.isFinite(seqNow)) lastSeqReceived = seqNow;
+    lastRx = rxMs;
+
+    const nextRange = Number(f.max_range) || maxRange;
+    const nextFov = Number(f.fov_half) || fovHalf;
+    const geometryChanged = nextRange !== maxRange || nextFov !== fovHalf;
+    maxRange = nextRange;
+    fovHalf = nextFov;
+    dtServer = framePeriod(f);
+
+    buf.push(f);
+    if (buf.length > 3) buf.shift();
+    reconcileFrame(f, rxMs);
+    sampleTrailsOnce(f, rxMs);
+    if (geometryChanged) resize();
+  };
+}
+
+const stage = document.getElementById('stage');
+const gridCv = document.getElementById('gridCv');
+const gridCtx = gridCv.getContext('2d');
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const dbgInput = document.getElementById('dbg');
+const sweepInput = document.getElementById('swp');
+let W=0,H=0,CX=0,CY=0,R=0, fps=0, fpsT=performance.now(), fpsN=0;
+let sweepGradient = null;
+let lastDrawAt = performance.now();
+let lastPerfRefresh = performance.now();
+let rafGapP95Ms = 0, renderP95Ms = 0;
+let adaptiveLite = false, liteUntilMs = 0;
+let drawStallCount = 0, streamStallCount = 0, droppedFrames = 0;
+let softCorrectionCount = 0, hardCorrectionCount = 0;
+let lastStreamGapMs = 0, lastSeqReceived = null;
+const rafGapSamples = [], renderSamples = [];
+
+function pushMetric(a,value,limit=180){
+  if (!Number.isFinite(value)) return;
+  a.push(value);
+  if (a.length > limit) a.splice(0,a.length-limit);
+}
+
+function p95(a){
+  if (!a.length) return 0;
+  const s = [...a].sort((x,y)=>x-y);
+  return s[Math.min(s.length-1, Math.floor(0.95*(s.length-1)))];
+}
+
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const r = stage.getBoundingClientRect();
+  if (r.width < 1 || r.height < 1) return;
+  const pixelW = Math.max(1, Math.round(r.width*dpr));
+  const pixelH = Math.max(1, Math.round(r.height*dpr));
+  if (cv.width !== pixelW || cv.height !== pixelH){
+    cv.width = pixelW; cv.height = pixelH;
+  }
+  if (gridCv.width !== pixelW || gridCv.height !== pixelH){
+    gridCv.width = pixelW; gridCv.height = pixelH;
+  }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  gridCtx.setTransform(dpr,0,0,dpr,0,0);
+  W = r.width; H = r.height;
+  if (fovHalf >= 179){                                                              
+    CY = H/2;
+    R  = Math.max(10, Math.min(W/2 - 70, H/2 - 46));
+  } else {                                                             
+    CY = H - 96;                                                                   
+    R  = Math.max(10, Math.min(W/2 - 80, H - 150));
+  }
+  CX = W/2;
+  sweepGradient = ctx.createRadialGradient(CX,CY,0,CX,CY,R);
+  sweepGradient.addColorStop(0,'rgba(0,255,168,.16)');
+  sweepGradient.addColorStop(1,'rgba(0,255,168,.02)');
+  drawStaticGrid();
+}
+new ResizeObserver(resize).observe(stage);
+
+const w2s = (x,y)=>[CX + (x/maxRange)*R, CY - (y/maxRange)*R];
+
+function drawStaticGrid(){
+  const c = gridCtx;
+  c.clearRect(0,0,W,H);
+  c.save();
+  const half = fovHalf*Math.PI/180;
+
+  const g = c.createRadialGradient(CX,CY,0,CX,CY,R);
+  g.addColorStop(0,'rgba(0,255,168,.07)'); g.addColorStop(1,'rgba(0,255,168,0)');
+  c.beginPath(); c.moveTo(CX,CY);
+  c.arc(CX,CY,R,-Math.PI/2-half,-Math.PI/2+half); c.closePath();
+  c.fillStyle=g; c.fill();
+
+  c.lineWidth=1; c.font='10px "Share Tech Mono",monospace';
+  const step = maxRange <= 0.6 ? 0.1 : (maxRange <= 1.2 ? 0.2 : (maxRange<=3 ? 0.5 : 1.0));
+  for (let r=step; r<=maxRange+1e-6; r+=step){
+    const rr = (r/maxRange)*R;
+    c.beginPath(); c.arc(CX,CY,rr,-Math.PI/2-half,-Math.PI/2+half);
+    const edge = Math.abs(r-maxRange)<1e-6;
+    c.strokeStyle = edge?'rgba(0,255,168,.55)':'rgba(0,255,168,.15)';
+    c.lineWidth = edge?1.6:1; c.stroke();
+    c.fillStyle='rgba(56,232,255,.55)';
+    c.fillText((maxRange<=0.6? (r*100).toFixed(0)+' cm' : r.toFixed(1)+' m'), CX+4, CY-rr-4);
+  }
+  for (let a=-fovHalf; a<=fovHalf+1e-6; a+=15){
+    const th = a*Math.PI/180;
+    const x = CX + Math.sin(th)*R, y = CY - Math.cos(th)*R;
+    c.beginPath(); c.moveTo(CX,CY); c.lineTo(x,y);
+    c.strokeStyle = (a===0)?'rgba(0,255,168,.4)':'rgba(0,255,168,.10)';
+    c.lineWidth = (a===0)?1.4:1; c.stroke();
+    if (a % (fovHalf>=179 ? 45 : 30) === 0 && !(fovHalf>=179 && a===180)){
+      c.fillStyle='rgba(56,232,255,.6)';
+      const lim = Math.abs(Math.abs(a)-fovHalf) < 1e-6;                  
+      if (lim){                                                                       
+        c.textAlign = a>0 ? 'left' : 'right';
+        c.fillText((a>0?'+':'')+a+'°', CX+Math.sin(th)*(R+10), CY-16);
+      } else {
+        c.textAlign='center';
+        c.fillText((a>0?'+':'')+a+'°', CX+Math.sin(th)*(R+18), CY-Math.cos(th)*(R+18)+4);
+      }
+      c.textAlign='left';
+    }
+  }
+
+  c.beginPath(); c.moveTo(CX,CY-13); c.lineTo(CX-9,CY+7); c.lineTo(CX+9,CY+7);
+  c.closePath(); c.fillStyle='rgba(56,232,255,.9)';
+  c.shadowColor='#38e8ff'; c.shadowBlur=14; c.fill(); c.shadowBlur=0;
+  c.restore();
+}
+
+function drawSweep(now){
+  if (!sweepInput.checked || adaptiveLite) return;
+  const half = fovHalf*Math.PI/180;
+  const ph  = (now/3000)%2;
+  const dir = ph<1 ? 1 : -1;
+  const a   = (ph<1 ? -1+2*ph : 3-2*ph) * half;
+  const f2  = a - Math.PI/2;
+  const f1  = Math.max(-Math.PI/2-half, Math.min(-Math.PI/2+half, f2 - dir*0.40));
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(CX,CY);
+  ctx.arc(CX,CY,R, Math.min(f1,f2), Math.max(f1,f2));
+  ctx.closePath();
+  ctx.fillStyle=sweepGradient || 'rgba(0,255,168,.06)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(CX,CY);
+  ctx.lineTo(CX+Math.sin(a)*R, CY-Math.cos(a)*R);
+  ctx.strokeStyle='rgba(0,255,168,.8)'; ctx.lineWidth=2;
+  ctx.globalAlpha=.24; ctx.lineWidth=6; ctx.stroke();
+  ctx.globalAlpha=1; ctx.lineWidth=2; ctx.stroke();
+  ctx.restore();
+}
+
+const starSprite = document.createElement('canvas');
+starSprite.width = starSprite.height = 96;
+const starSpriteCtx = starSprite.getContext('2d');
+(function buildStarSprite(){
+  const c=starSpriteCtx, m=48;
+  const glow=c.createRadialGradient(m,m,3,m,m,44);
+  glow.addColorStop(0,'rgba(255,45,75,.72)');
+  glow.addColorStop(.38,'rgba(255,45,75,.28)');
+  glow.addColorStop(1,'rgba(255,45,75,0)');
+  c.fillStyle=glow; c.fillRect(0,0,96,96);
+  c.save(); c.translate(m,m); c.rotate(-Math.PI/2); c.beginPath();
+  for(let i=0;i<10;i++){
+    const rr=i%2?7.2:17, a=i*Math.PI/5;
+    i?c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)
+     :c.moveTo(Math.cos(a)*rr,Math.sin(a)*rr);
+  }
+  c.closePath(); c.fillStyle='#ff2d4b'; c.fill();
+  c.lineWidth=1.4; c.strokeStyle='rgba(255,235,238,.92)'; c.stroke(); c.restore();
+})();
+
+function star(x,y,rad,alpha,pulse){
+  const size=52+4*pulse;
+  ctx.save(); ctx.globalAlpha*=alpha;
+  ctx.drawImage(starSprite,x-size/2,y-size/2,size,size);
+  ctx.restore();
+}
+
+const scr = new Map();                                                       
+
+function candidateMarker(t, f, now){
+  const p = projectTrack(t, f, now);
+  const [sx,sy] = w2s(p.x,p.y);
+  const pulse = 0.5+0.5*Math.sin(now/260);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(sx,sy-9); ctx.lineTo(sx+9,sy);
+  ctx.lineTo(sx,sy+9); ctx.lineTo(sx-9,sy); ctx.closePath();
+  ctx.strokeStyle='rgba(255,194,71,.95)';
+  ctx.lineWidth=1.6; ctx.shadowColor='#ffc247';
+  ctx.shadowBlur=adaptiveLite?0:10; ctx.stroke();
+  ctx.shadowBlur=0;
+  ctx.beginPath(); ctx.arc(sx,sy,12+2*pulse,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,194,71,.28)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.font='10px "Share Tech Mono",monospace';
+  ctx.fillStyle='rgba(255,194,71,.88)';
+  ctx.fillText('#'+t.id+'  ỨNG VIÊN',sx+14,sy+4);
+  ctx.restore();
+}
+
+function drawDebug(latest){
+  if (!dbgInput.checked || !latest || !latest.debug) return;
+  const points = Array.isArray(latest.debug.points) ? latest.debug.points : [];
+  ctx.fillStyle='rgba(0,255,168,.30)';
+  const pointStep = adaptiveLite ? Math.max(1,Math.ceil(points.length/120)) : 1;
+  for (let i=0;i<points.length;i+=pointStep){
+    const p=points[i];
+    const [sx,sy]=w2s(p[0],p[1]);
+    ctx.fillRect(sx-1,sy-1,2,2);
+  }
+  const debugTracks = Array.isArray(latest.debug.tracks) ? latest.debug.tracks : [];
+  for (const t of debugTracks){
+    if (t.state==='DYNAMIC' || t.state==='SUSPECT') continue;
+    const [sx,sy]=w2s(t.x,t.y);
+    ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2);
+    ctx.strokeStyle='rgba(70,110,130,.6)';
+    ctx.lineWidth=1.2; ctx.stroke();
+    ctx.fillStyle='rgba(120,160,175,.75)'; ctx.font='9px monospace';
+    ctx.fillText('#'+t.id+' '+t.state, sx+8, sy+3);
+  }
+}
+
+function drawTrailsBatched(now){
+  ctx.save();
+  ctx.lineWidth=2;
+  ctx.lineJoin='round';
+  for (const [id,trail] of trails){
+    if (trail.length < 2) continue;
+    const state = visualTracks.get(id);
+    const alpha = state ? trackFadeAlpha(state,now) : 0;
+    if (alpha <= 0.002) continue;
+    ctx.beginPath();
+    const first = w2s(trail[0].x,trail[0].y);
+    ctx.moveTo(first[0],first[1]);
+    for (let i=1;i<trail.length-1;i++){
+      const p = w2s(trail[i].x,trail[i].y);
+      const n = w2s(trail[i+1].x,trail[i+1].y);
+      ctx.quadraticCurveTo(p[0],p[1],(p[0]+n[0])/2,(p[1]+n[1])/2);
+    }
+    const last=w2s(trail[trail.length-1].x,trail[trail.length-1].y);
+    ctx.lineTo(last[0],last[1]);
+    ctx.strokeStyle='rgba(255,45,75,'+(0.34*alpha).toFixed(3)+')';
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSurfaceEstimate(t,p,alpha){
+  const width = Math.max(0,Number(t.surface_width)||0);
+  const expected = Math.max(0,Math.min(28,Math.round(Number(t.expected_points)||0)));
+  const observed = Math.max(0,Math.min(expected,Math.round(Number(t.observed_points)||0)));
+  if (width < 0.005 || expected < 2) return;
+
+  const rr = Math.hypot(p.x,p.y);
+  if (rr < 1e-6) return;
+  const tx = p.y/rr, ty = -p.x/rr;                           
+  const visible = new Set();
+  for (let k=0;k<observed;k++)
+    visible.add(k%2===0 ? Math.floor(k/2) : expected-1-Math.floor(k/2));
+
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  for (let i=0;i<expected;i++){
+    const u = expected===1 ? 0 : i/(expected-1)-0.5;
+    const wx = p.x + tx*u*width, wy = p.y + ty*u*width;
+    const [qx,qy] = w2s(wx,wy);
+    ctx.beginPath(); ctx.arc(qx,qy,visible.has(i)?2.15:2.45,0,Math.PI*2);
+    if (visible.has(i)){
+      ctx.fillStyle='rgba(255,194,71,.92)'; ctx.fill();
+    } else {
+      ctx.strokeStyle='rgba(255,194,71,.34)'; ctx.lineWidth=1;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawDynamicTrack(id, state, now, rendered){
+  const t = state.track;
+  const alpha = trackFadeAlpha(state,now);
+  if (alpha <= 0.002) return;
+  const p = visualPosition(state, now);
+  const [sx,sy]=w2s(p.x,p.y);
+  const isActive = t.active !== false;
+  const pulse = isActive ? 0.5+0.5*Math.sin(now/230) : 0;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  drawSurfaceEstimate(t,p,1);
+  if (isActive && !adaptiveLite){
+    ctx.beginPath(); ctx.arc(sx,sy,13+5*pulse,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,45,75,.30)'; ctx.lineWidth=1; ctx.stroke();
+  }
+  star(sx,sy,11,1,pulse);
+
+  const bear = Math.atan2(p.x,p.y)*180/Math.PI;
+  const berr = Number(t.bearing_err) || 0;
+  const th = bear*Math.PI/180;
+  if (berr > 0.02 && berr < 45){
+    const f1 = th-Math.PI/2-berr*Math.PI/180;
+    const f2 = th-Math.PI/2+berr*Math.PI/180;
+    ctx.beginPath(); ctx.moveTo(CX,CY); ctx.arc(CX,CY,R,f1,f2); ctx.closePath();
+    ctx.fillStyle='rgba(255,45,75,.13)'; ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(CX+Math.sin(th)*(R-10),CY-Math.cos(th)*(R-10));
+  ctx.lineTo(CX+Math.sin(th)*(R+6),CY-Math.cos(th)*(R+6));
+  ctx.strokeStyle='rgba(255,45,75,.85)'; ctx.lineWidth=2; ctx.stroke();
+
+  const rr = Math.hypot(p.x,p.y);
+  const speed = Number.isFinite(Number(t.speed))
+    ? Number(t.speed) : Math.hypot(Number(t.vx)||0,Number(t.vy)||0);
+  const rTxt = maxRange <= 0.6 ? (rr*100).toFixed(0)+' cm' : rr.toFixed(2)+' m';
+  ctx.font='bold 11px "Share Tech Mono",monospace';
+  ctx.fillStyle='rgba(255,225,140,1)';
+  const trackStatus = t.occluded === true ? '  BỊ CHE' : (isActive ? '' : '  MẤT DẤU');
+  ctx.fillText('#'+id+'  '+(bear>=0?'+':'')+bear.toFixed(1)+'° ±'+berr.toFixed(1)+'°'+trackStatus,sx+16,sy-9);
+  ctx.font='10px "Share Tech Mono",monospace';
+  ctx.fillStyle='rgba(255,194,71,.7)';
+  const npObs=Math.max(0,Number(t.observed_points)||0);
+  const npExp=Math.max(npObs,Number(t.expected_points)||0);
+  const layerTxt=t.range_layer===true?'  LỚP KC':'';
+  ctx.fillText(rTxt+'    '+speed.toFixed(2)+' m/s    '+
+    npObs.toFixed(0)+'/'+npExp.toFixed(0)+' điểm'+layerTxt,sx+16,sy+4);
+
+  const shown = Object.assign({},t,{x:p.x,y:p.y,range:rr,speed:speed});
+  if (isActive){
+    rendered.set(id,shown);
+    scr.set(id,{sx,sy,t:shown,bear,berr});
+  }
+  ctx.restore();
+}
+
+function draw(){
+  requestAnimationFrame(draw);
+  const renderStart = performance.now();
+  const now = renderStart;
+  const rafGap = Math.max(0,now-lastDrawAt);
+  lastDrawAt = now;
+  pushMetric(rafGapSamples,rafGap);
+  if (rafGap > 50){
+    drawStallCount++;
+    liteUntilMs = Math.max(liteUntilMs,now+1800);
+  }
+  fpsN++; if (now-fpsT>500){ fps = fpsN*1000/(now-fpsT); fpsN=0; fpsT=now; }
+
+  ctx.clearRect(0,0,W,H);
+  drawSweep(now);
+  const latest = buf.length ? buf[buf.length-1] : null;
+  drawDebug(latest);
+  drawTrailsBatched(now);
+
+  if (latest)
+    for (const t of latest.candidates) candidateMarker(t,latest,now);
+
+  scr.clear();
+  const rendered = new Map();
+  const orderedTracks=[...visualTracks.entries()].sort((a,b)=>{
+    const pa=visualPosition(a[1],now), pb=visualPosition(b[1],now);
+    return Math.hypot(pb.x,pb.y)-Math.hypot(pa.x,pa.y);
+  });
+  for (const [id,state] of orderedTracks)
+    drawDynamicTrack(id,state,now,rendered);
+  hud(latest,rendered,now);
+
+  const renderCost = Math.max(0,performance.now()-renderStart);
+  pushMetric(renderSamples,renderCost);
+  if (renderCost > 12) liteUntilMs = Math.max(liteUntilMs,now+1800);
+  if (now-lastPerfRefresh >= 500){
+    lastPerfRefresh = now;
+    rafGapP95Ms = p95(rafGapSamples);
+    renderP95Ms = p95(renderSamples);
+    const overloaded = fps < 48 || rafGapP95Ms > 28 || renderP95Ms > 12;
+    if (overloaded) liteUntilMs = Math.max(liteUntilMs,now+1800);
+    adaptiveLite = now < liteUntilMs;
+  }
+}
+
+function ghepMau(latest){
+  if (!latest || latest.ty_le_ghep == null) return '#6f8a97';
+  const g = latest.ty_le_ghep;
+  return g >= 0.85 ? '#00ffa8' : (g >= 0.6 ? '#ffc247' : '#ff2d4b');
+}
+
+const hudWriteCache = new Map();
+const HUD_INTERVAL_MS = 90;                           
+let lastHudWrite = -Infinity;
+
+function writeHTML(id, html){
+  const key = 'html:'+id;
+  if (hudWriteCache.get(key) === html) return;
+  hudWriteCache.set(key, html);
+  document.getElementById(id).innerHTML = html;
+}
+
+function writeText(id, value){
+  const key = 'html:'+id;
+  const cached = 'text:'+value;
+  if (hudWriteCache.get(key) === cached) return;
+  hudWriteCache.set(key, cached);
+  document.getElementById(id).textContent = value;
+}
+
+function writeStatus(text, color){
+  const value = text+'|'+color;
+  if (hudWriteCache.get('status') === value) return;
+  hudWriteCache.set('status', value);
+  const st = document.getElementById('status');
+  st.textContent = text;
+  st.style.color = color;
+}
+
+function hud(latest, cur, now){
+  if (now-lastHudWrite < HUD_INTERVAL_MS) return;
+  lastHudWrite = now;
+  const rawStats = latest && latest.stats ? latest.stats : {};
+  const numeric = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+  const s = {
+    n_dyn:numeric(rawStats.n_dyn),
+    n_track:numeric(rawStats.n_track),
+    n_cluster:numeric(rawStats.n_cluster),
+    n_point:numeric(rawStats.n_point),
+    avg_speed:numeric(rawStats.avg_speed)
+  };
+  const hz = Number(latest && latest.hz);
+  const live = latest && (now-lastRx < 1500);
+
+  let goc = '';
+  if (cur && cur.size){
+    const ids = [...cur.keys()].sort((a,b)=>a-b);
+    goc = '<br><span class="k">GÓC PHƯƠNG VỊ</span>' + ids.slice(0,3).map(id=>{
+      const t = cur.get(id);
+      const b = Math.atan2(t.x, t.y)*180/Math.PI;
+      const e = t.bearing_err ?? 0;
+      return `<br><span class="goc">${b>=0?'+':''}${b.toFixed(1)}°</span>` +
+             `<span class="k"> ± ${e.toFixed(1)}°</span>` +
+             `<span class="k">  #${id}  ${maxRange<=0.6 ? ((t.range??Math.hypot(t.x,t.y))*100).toFixed(0)+' cm' : (t.range??Math.hypot(t.x,t.y)).toFixed(2)+' m'}</span>`;
+    }).join('');
+  }
+
+  writeHTML('tl',
+    `<span class="k">MỤC TIÊU ĐỘNG</span><br><span class="big">${String(s.n_dyn).padStart(2,'0')}</span>` +
+    `<br><span class="k">TỐC ĐỘ TB</span> <span class="v">${s.avg_speed.toFixed(2)} m/s</span>` + goc);
+
+  writeHTML('tr',
+    `<span class="k">QUÉT</span> <span class="v">${Number.isFinite(hz)?hz.toFixed(1):'--'} Hz</span><br>` +
+    `<span class="k">HIỂN THỊ</span> <span class="v">${fps.toFixed(0)} FPS</span><br>` +
+    `<span class="k">VẼ p95</span> <span class="v">${renderP95Ms.toFixed(1)} ms</span>` +
+    `<span class="k">  JITTER p95</span> <span class="v">${rafGapP95Ms.toFixed(1)} ms</span><br>` +
+    `<span class="k">VẾT / CỤM</span> <span class="v">${s.n_track} / ${s.n_cluster}</span><br>` +
+    `<span class="k">ĐIỂM</span> <span class="v">${s.n_point}</span><br>` +
+    `<span class="k">GHÉP</span> <span class="v" style="color:${
+        ghepMau(latest)}">${latest&&latest.ty_le_ghep!=null
+        ? (latest.ty_le_ghep*100).toFixed(0)+'%' : '--'}</span>` +
+    `<span class="k">  CỤT</span> <span class="v">${latest?latest.n_cut??0:0}</span><br>` +
+    `<span class="k">CHẾ ĐỘ</span> <span class="v" style="color:${adaptiveLite?'#ffc247':'#00ffa8'}">` +
+    `${adaptiveLite?'GIẢM TẢI':'MƯỢT'}</span>`);
+
+  const ageMs = latest ? measurementAge(latest,now)*1000 : 0;
+  writeHTML('bl',
+    `TỈ LỆ ${maxRange<=0.6?'10 cm':'1.00 m'} = ${R? (R/maxRange*(maxRange<=0.6?0.1:1)).toFixed(0):'--'} px  ·  FOV ${(2*fovHalf).toFixed(0)}°  ·  R ${(maxRange*100).toFixed(0)} cm<br>` +
+    `TUỔI ${latest?ageMs.toFixed(0):'--'} ms  ·  XỬ LÝ ${latest&&Number.isFinite(Number(latest.process_ms))?Number(latest.process_ms).toFixed(1):'--'} ms  ·  SEQ ${latest&&latest.seq!=null?latest.seq:'--'}<br>` +
+    `KHE GÓI ${lastStreamGapMs.toFixed(0)} ms  ·  BỎ ${droppedFrames}  ·  KHỰNG VẼ/LUỒNG ${drawStallCount}/${streamStallCount}<br>` +
+    `BÙ MỀM/CỨNG ${softCorrectionCount}/${hardCorrectionCount}`);
+
+  const cb = latest && latest.canh_bao;
+  const moved = !!(latest && latest.sensor_moved);
+  const guarded = !!(latest && latest.sensor_guard);
+  document.getElementById('relearn').classList.toggle('need-relearn',moved);
+  if (!live) writeStatus('◉ KHÔNG CÓ DỮ LIỆU','#ff2d4b');
+  else if (moved) writeStatus('⚠ LIDAR ĐÃ BỊ XÊ DỊCH — BẤM HỌC LẠI NỀN','#ff8a00');
+  else if (guarded) writeStatus('⚠ ĐANG KIỂM TRA LIDAR/NỀN — TẠM NGẮT BÁO ĐỘNG','#ffc247');
+  else if (cb) writeStatus('⚠ '+cb,'#ffc247');
+  else if (s.n_dyn>0) writeStatus('◉ TRACKING','#ff2d4b');
+  else if (s.n_track>0) writeStatus('◈ SCANNING','#ffc247');
+  else writeStatus('◇ NO THREAT DETECTED','#00ffa8');
+
+  if (latest){
+    const debugTracks = latest.debug && Array.isArray(latest.debug.tracks)
+      ? latest.debug.tracks : [];
+    const rows = debugTracks.map(t=>
+      `<tr><td>#${t.id}</td><td class="st-${t.state}">${t.state}</td>` +
+      `<td style="color:#ff2d4b">${t.gates||'—'}</td>` +
+      `<td class="n">${(t.d_anchor??0).toFixed(0)}</td>` +
+      `<td class="n">${t.ev??0}</td></tr>`).join('');
+    writeHTML('tt',
+      '<tr style="color:#3f6473"><td>VẾT</td><td>TRẠNG THÁI</td><td>CỔNG</td>' +
+      '<td class="n">TRÔI</td><td class="n">Ô BC</td></tr>' +
+      (rows || '<tr><td colspan="5" style="color:#3f6473">— chưa có vết nào —</td></tr>'));
+  }
+
+  if (selected!==null && cur && cur.has(selected)){
+    const t = cur.get(selected);
+    const b = Math.atan2(t.x, t.y)*180/Math.PI;
+    writeHTML('detail',
+      `<span class="id">★ VẾT #${t.id}</span><br>` +
+      `<b style="color:#ff2d4b">góc ${b>=0?'+':''}${b.toFixed(2)}° ± ${(t.bearing_err??0).toFixed(2)}°</b><br>` +
+      `cự ly &nbsp;<b>${(t.range??Math.hypot(t.x,t.y)).toFixed(3)} ± ${(t.range_err??0).toFixed(3)} m</b><br>` +
+      `vị trí &nbsp;<b>x=${t.x.toFixed(3)} &nbsp; y=${t.y.toFixed(3)} m</b><br>` +
+      `vận tốc <b>${t.speed.toFixed(3)} m/s</b><br>` +
+      `hướng đi <b>${t.heading>=0?'+':''}${t.heading.toFixed(1)}°</b><br>` +
+      `bề mặt nhớ <b>${((Number(t.surface_width)||0)*1000).toFixed(0)} mm</b> · ` +
+      `điểm thấy/dự kiến <b>${Number(t.observed_points||0).toFixed(0)}/${Number(t.expected_points||0).toFixed(0)}</b><br>` +
+      `đã bám <b>${t.age.toFixed(1)} s</b>` +
+      (t.occluded === true
+        ? `<br><span style="color:#ffc247">đang bị vật khác che — giữ ID và dự đoán nội bộ (${Number(t.occlusion_frames||0)} vòng)</span>`
+        : (t.matched === false
+          ? `<br><span style="color:#ffc247">đang mất dấu tạm thời — giữ vị trí cuối ${Number(t.stale_age||0).toFixed(1)} s</span>`
+          : '')));
+  } else if (selected!==null) {
+    selected = null;
+    writeText('detail','Bấm vào một ngôi sao đỏ để xem chi tiết.');
+  }
+}
+
+function pushDebug(enabled){
+  fetch('/debug',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({enabled:Boolean(enabled)})
+  }).catch(()=>{});
+}
+dbgInput.addEventListener('change',()=>pushDebug(dbgInput.checked));
+pushDebug(dbgInput.checked);
+
+resize();
+if (document.fonts && document.fonts.ready)
+  document.fonts.ready.then(drawStaticGrid);
+connect();
+requestAnimationFrame(draw);
+
+document.getElementById('relearn').addEventListener('click', ()=>{
+  fetch('/relearn',{method:'POST'});
+  const b=document.getElementById('relearn');
+  b.textContent='ĐANG HỌC LẠI...';
+  setTimeout(()=>{ b.textContent='HỌC LẠI NỀN'; }, 4000);
+});
+
+cv.addEventListener('click', e=>{
+  const r = cv.getBoundingClientRect();
+  const mx = e.clientX-r.left, my = e.clientY-r.top;
+  let best=null, bd=1e9;
+  for (const [id,p] of scr){
+    const d = Math.hypot(mx-p.sx, my-p.sy);
+    if (d<bd){ bd=d; best=id; }
+  }
+  if (best!==null && bd<34) selected = best;
+  else { selected=null;
+    writeText('detail','Bấm vào một ngôi sao đỏ để xem chi tiết.'); }
+});
+
+let postTimer=null;
+function push(k,v){
+  cfg[k]=v;
+  clearTimeout(postTimer);
+  postTimer = setTimeout(()=>{
+    fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(cfg)});
+  },140);
+}
+
+fetch('/config').then(r=>r.json()).then(c=>{
+  cfg = c;
+  document.querySelectorAll('.row[data-k]').forEach(row=>{
+    const k = row.dataset.k, fmt = row.dataset.fmt||'';
+    const step = parseFloat(row.dataset.step);
+    const dec = step<1 ? 2 : 0;
+    row.innerHTML =
+      `<label>${LBL[k]||k} <b id="lb_${k}">${(+c[k]).toFixed(dec)} ${fmt}</b></label>` +
+      `<input type="range" id="in_${k}" min="${row.dataset.min}" max="${row.dataset.max}" ` +
+      `step="${step}" value="${c[k]}">`;
+    const inp = row.querySelector('input');
+    inp.addEventListener('input', ()=>{
+      const v = parseFloat(inp.value);
+      document.getElementById('lb_'+k).textContent = v.toFixed(dec)+' '+fmt;
+      push(k,v);
+    });
+  });
+});
+</script>
+</body>
+</html>
