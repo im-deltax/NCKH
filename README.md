@@ -1,6 +1,6 @@
 # NCKH — LiDAR, camera/pan-tilt và IFF
 
-Hệ thống nguyên mẫu kết hợp LiDAR phát hiện chuyển động, IFF xác thực thẻ và camera/pan-tilt bám mục tiêu. Kết quả IFF **BẠN** giữ cơ cấu chờ; **THÙ** cho phép camera bám. Hỗ trợ cảnh báo Telegram tùy chọn.
+Hệ thống gồm ba khối: **nhận diện vật cản động/tĩnh** bằng LiDAR; **phân loại và bám bắt** bằng camera/pan-tilt; **nhận diện bạn–thù** bằng IFF.
 
 ## Thành phần
 
