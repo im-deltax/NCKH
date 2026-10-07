@@ -1,0 +1,17 @@
+# Hinh minh hoa ly thuyet — khong phai so do thiet bi
+# Doi chung ket qua giai tich voi mo phong Monte Carlo
+dai_luong,giai_tich,mo_phong,do_lech
+trung binh  E[e],0.000000,0.000373,0.000373
+do lech chuan  sigma,0.288675,0.288391,0.000284
+phuong sai  sigma^2,0.083333,0.083169,0.000164
+bien do lon nhat,0.500000,0.499999,0.000001
+mat do  1/q,1.000000,1.000000,0.000000
+so_mau_mo_phong,400000,,
+
+# Sai so chuan theo tung buoc luong tu
+q_mm,sigma_lt_mm
+0.25,0.0722
+0.50,0.1443
+1.00,0.2887
+2.00,0.5774
+5.00,1.4434
