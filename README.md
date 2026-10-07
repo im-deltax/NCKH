@@ -58,6 +58,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 - Telegram: sao chép `CameraPantilt/canh_bao_bi_mat.mau.json` thành `canh_bao_bi_mat.json` cùng thư mục, điền `bot_token` và `chat_id`. Không cấu hình thì bỏ qua Telegram; không công khai tệp riêng hoặc URL có khóa xem.
 - Giữ nguyên các tệp trong `CameraPantilt/mo_hinh/` để chương trình tìm được mô hình.
 
+## Dữ liệu thực nghiệm
+
+Kho kèm toàn bộ 94 tệp CSV của dự án trong `CameraPantilt/log/`, `CameraPantilt/ket_qua/`, `IFF/ket_qua/` và `Lidar/tai_lieu/`. Tệp `TN_BAI4_PRED_1790260180.csv` được đóng gói thành `.csv.zip` do vượt giới hạn tải qua web; giải nén để lấy CSV gốc. Các bản sao giữ nguyên nội dung.
+
 Đã kiểm tra phần mềm và biên dịch firmware; **chưa kiểm thử phối hợp trên phần cứng**. Bản nguồn ở C được giữ nguyên. Phiên bản dùng cho báo cáo: [bao-cao-2026-10-06-phan-mem](https://github.com/im-deltax/NCKH/releases/tag/bao-cao-2026-10-06-phan-mem).
 
 Mô hình dùng giấy phép AGPL-3.0 của Ultralytics; các thư viện giữ giấy phép tương ứng. Kho chưa có giấy phép riêng cho mã dự án.

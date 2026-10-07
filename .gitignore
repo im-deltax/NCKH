@@ -41,3 +41,19 @@ Thumbs.db
 .DS_Store
 
 **/kernel.errors.txt
+
+!CameraPantilt/log/*.csv
+!CameraPantilt/log/*.csv.zip
+!CameraPantilt/ket_qua/
+CameraPantilt/ket_qua/**
+!CameraPantilt/ket_qua/**/
+!CameraPantilt/ket_qua/**/*.csv
+!IFF/ket_qua/
+IFF/ket_qua/**
+!IFF/ket_qua/**/
+!IFF/ket_qua/**/*.csv
+!Lidar/tai_lieu/
+Lidar/tai_lieu/**
+!Lidar/tai_lieu/**/
+!Lidar/tai_lieu/**/*.csv
+
