@@ -1,0 +1,22 @@
+# Phep kiem 1: phan bo hai bit thap cua o cu ly
+gia_tri_hai_bit_thap,so_lan,ti_le_pt,ti_le_neu_la_phan_le_pt
+0,11977,100.0000,25.0
+1,0,0.0000,25.0
+2,0,0.0000,25.0
+3,0,0.0000,25.0
+
+# Phep kiem 2: luoi gia tri
+chi_tieu,gia_tri
+so_goi_hop_le,390
+so_tia,11977
+so_gia_tri_phan_biet,2934
+so_gia_tri_khong_chia_het_cho_4,0
+ucln_don_vi_quarter_mm,4
+buoc_luoi_mm,1.00
+khe_nho_nhat_mm,1
+
+# Doi chung tren ban ghi
+ban_ghi,so_tia,so_gia_tri_co_phan_le,so_gia_tri_phan_biet,ucln_mm,khe_nho_nhat_mm
+sach_moi,130183,0,5115,1,1
+di_sach,118306,0,5327,1,1
+trong_dai,122572,0,5076,1,1
